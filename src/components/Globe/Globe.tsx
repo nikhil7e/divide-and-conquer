@@ -6,8 +6,13 @@ import './Globe.css';
 export const GlobeComponent = () => {
   const [countries, setCountries] = useState({ features: [] });
   const [gameState, setGameState] = useState(null);
-  const globeRef = useRef<GlobeMethods>(null);
   const [hoverD, setHoverD] = useState(null);
+  const [selectedAction, setSelectedAction] = useState(null);
+  const [playerCountry, setPlayerCountry] = useState(null);
+  const [selectedCountry, setSelectedCountry] = useState(null);
+  const [popupStyles, setPopupStyles] = useState(null);
+
+  const globeRef = useRef<GlobeMethods>(null);
 
   useEffect(() => {
     // load data
@@ -29,26 +34,58 @@ export const GlobeComponent = () => {
     getGameState();
   }, []);
 
+  useEffect(() => {
+    if (gameState) {
+      setPlayerCountry(gameState.playerCountry);
+    }
+  }, [gameState]);
+
   const showCountry = () => {
+    if (!playerCountry || !countries) {
+      return [];
+    }
+
     // find the selected country in the game state
-    const selectedCountry = gameState.playerCountry.name;
     // find the matching feature for the selected country in the countries data
-    const selectedFeature = countries.features.find((feature) => feature.properties.ADMIN === selectedCountry);
-    // fly to the selected country
-    // globeRef.current.toGlobeCoords(
-    //   selectedFeature.properties.coordinates[0],
-    //   selectedFeature.properties.coordinates[1]
-    // );
-    console.log(selectedFeature.geometry.coordinates[0]);
+    const selectedFeature = countries.features.find((feature) => feature.properties.ADMIN === playerCountry.name);
+
     globeRef.current?.pointOfView(
       {
         lat: selectedFeature.geometry.coordinates[0][0][0][1],
         lng: selectedFeature.geometry.coordinates[0][0][0][0],
-        altitude: 1,
+        altitude: 1.5,
       },
-      500
+      4000
     );
   };
+
+  const pointsData = useMemo(() => {
+    if (!playerCountry) {
+      return [];
+    }
+
+    const selectedFeature = countries.features.find((feature) => feature.properties.ADMIN === playerCountry.name);
+
+    if (!selectedFeature) {
+      return [];
+    }
+
+    const coords = selectedFeature.geometry.coordinates;
+
+    const first = Math.floor(coords.length / 2);
+    const second = Math.floor(coords[first].length / 2);
+    const third = Math.floor(coords[first][second].length / 2);
+
+    const points = [
+      {
+        lat: coords[first][second][third][1],
+        lng: coords[first][second][third][0],
+        name: 'Your country',
+      },
+    ];
+
+    return points;
+  }, [playerCountry, countries]);
 
   const colorScale = d3.scaleSequentialSqrt(d3.interpolateYlOrRd);
 
@@ -58,11 +95,16 @@ export const GlobeComponent = () => {
   const maxVal = useMemo(() => Math.max(...countries.features.map(getVal)), [countries]);
   colorScale.domain([0, maxVal]);
 
-  const handleCountryClick = (country) => {
-    console.log(country);
-    // get country stats from gameState object
-    const countryStats = gameState.countries.find((c) => c.name === country.properties.ADMIN);
-    console.log(countryStats);
+  const handleCountryClick = (country, e: MouseEvent) => {
+    if (selectedCountry === country) {
+      setSelectedCountry(null);
+    } else {
+      setSelectedCountry(country);
+      setPopupStyles({
+        top: e.clientY + 'px',
+        left: e.clientX + 'px',
+      });
+    }
   };
 
   const hexPolygonLabel = ({ properties: d }) => {
@@ -78,10 +120,38 @@ export const GlobeComponent = () => {
     setHoverD(hexPolygon);
   };
 
+  const handleSelectAction = (action) => {
+    if (selectedAction === action) {
+      setSelectedAction(null);
+    } else {
+      setSelectedAction(action);
+    }
+  };
+
+  const handleEndTurn = async () => {
+    const requestBody = {
+      action: selectedAction,
+      countryName: gameState.playerCountry.name,
+      gameStateId: gameState.id,
+    };
+
+    const res = await fetch('http://localhost:4000/turn', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+    const data = await res.json();
+
+    setSelectedAction(null);
+    setGameState(data);
+  };
+
   return (
     <>
       {(!countries || !gameState) && <h1>Loading...</h1>}
-      {countries && gameState && (
+      {countries && gameState && playerCountry && (
         <>
           <div className="overlay" style={{ pointerEvents: 'none' }}>
             <div className="header">
@@ -99,36 +169,69 @@ export const GlobeComponent = () => {
               <h2>Actions</h2>
               <ul>
                 <li>
-                  <button>End Turn</button>
+                  <button
+                    className={selectedAction === null ? 'not-selected end-turn' : 'selected end-turn'}
+                    onClick={handleEndTurn}>
+                    End Turn
+                  </button>
                 </li>
                 <li>
-                  <button>Build Army</button>
+                  <button
+                    className={selectedAction === 'buildArmy' ? 'selected' : 'not-selected'}
+                    onClick={() => handleSelectAction('buildArmy')}>
+                    Build Army
+                  </button>
                 </li>
                 <li>
-                  <button>Attack</button>
+                  <button
+                    className={selectedAction === 'attack' ? 'selected' : 'not-selected'}
+                    onClick={() => handleSelectAction('attack')}>
+                    Attack
+                  </button>
                 </li>
                 <li>
-                  <button>Diplomacy</button>
+                  <button
+                    className={selectedAction === 'diplomacy' ? 'selected' : 'not-selected'}
+                    onClick={() => handleSelectAction('diplomacy')}>
+                    Diplomacy
+                  </button>
                 </li>
               </ul>
             </div>
           </div>
-          <Globe
-            ref={globeRef}
-            globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
-            hexPolygonsData={countries.features.filter((d) => d.properties.ISO_A2 !== 'AQ')}
-            lineHoverPrecision={0}
-            hexPolygonResolution={4}
-            hexSideColor={() => 'rgba(0, 100, 0, 0.15)'}
-            hexPolygonMargin={0}
-            hexPolygonAltitude={0.1}
-            hexPolygonColor={(d) => (d === hoverD ? 'steelblue' : colorScale(getVal(d)))}
-            hexPolygonLabel={hexPolygonLabel}
-            onHexPolygonHover={handleHexPolygonHover}
-            hexPolygonsTransitionDuration={300}
-            hexPolygonCurvatureResolution={0}
-            onHexPolygonClick={handleCountryClick}
-          />
+          {playerCountry && (
+            <>
+              <Globe
+                ref={globeRef}
+                globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
+                hexPolygonsData={countries.features.filter((d) => d.properties.ISO_A2 !== 'AQ')}
+                lineHoverPrecision={0}
+                hexPolygonResolution={4}
+                hexSideColor={() => 'rgba(0, 100, 0, 0.15)'}
+                hexPolygonMargin={0}
+                //@ts-ignore
+                hexPolygonAltitude={0.1}
+                hexPolygonColor={(d) => (d === hoverD ? 'steelblue' : colorScale(getVal(d)))}
+                hexPolygonLabel={hexPolygonLabel}
+                onHexPolygonHover={handleHexPolygonHover}
+                hexPolygonsTransitionDuration={300}
+                hexPolygonCurvatureResolution={0}
+                onHexPolygonClick={handleCountryClick}
+                onGlobeReady={showCountry}
+                pointsData={pointsData}
+                pointColor={() => 'green'}
+                pointAltitude={1}
+                onGlobeClick={() => setSelectedCountry(null)}
+              />
+              {selectedCountry && (
+                <div className="popup" style={popupStyles}>
+                  <h2>{selectedCountry.properties.ADMIN}</h2>
+                  <p>Population: {selectedCountry.properties.POP_EST}</p>
+                  <button>Attack</button>
+                </div>
+              )}
+            </>
+          )}
         </>
       )}
     </>
