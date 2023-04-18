@@ -1,5 +1,6 @@
 import * as d3 from 'd3';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import ReactDOMServer from 'react-dom/server';
 import Globe, { GlobeMethods } from 'react-globe.gl';
 import './Globe.css';
 
@@ -10,7 +11,6 @@ export const GlobeComponent = () => {
   const [selectedAction, setSelectedAction] = useState(null);
   const [playerCountry, setPlayerCountry] = useState(null);
   const [selectedCountry, setSelectedCountry] = useState(null);
-  const [popupStyles, setPopupStyles] = useState(null);
 
   const globeRef = useRef<GlobeMethods>(null);
 
@@ -44,6 +44,8 @@ export const GlobeComponent = () => {
     if (!playerCountry || !countries) {
       return [];
     }
+
+    console.log(countries);
 
     // find the selected country in the game state
     // find the matching feature for the selected country in the countries data
@@ -96,24 +98,33 @@ export const GlobeComponent = () => {
   colorScale.domain([0, maxVal]);
 
   const handleCountryClick = (country, e: MouseEvent) => {
+    if (selectedAction === 'attack' || selectedAction === 'diplomacy') {
+      setSelectedAction(null);
+    }
     if (selectedCountry === country) {
       setSelectedCountry(null);
     } else {
       setSelectedCountry(country);
-      setPopupStyles({
-        top: e.clientY + 'px',
-        left: e.clientX + 'px',
-      });
+      setHoverD(null);
     }
   };
 
   const hexPolygonLabel = ({ properties: d }) => {
     const countryStats = gameState.countries.find((c) => c.name === d.ADMIN);
-    return `
-      <b>${d.ADMIN} (${d.ISO_A2})</b> <br />
-      Population: <i>${d.POP_EST}</i> <br />
-      Resources: <i>${countryStats.resources}</i>
-    `;
+
+    const jsxString = ReactDOMServer.renderToString(
+      <div className="overlay-label">
+        <b>
+          {d.ADMIN} ({d.ISO_A2})
+        </b>{' '}
+        <br />
+        Population: <i>{d.POP_EST}</i> <br />
+        Resources: <i>{countryStats.resources}</i> <br />
+        Troops: <i>{countryStats.troops}</i>
+      </div>
+    );
+
+    return jsxString;
   };
 
   const handleHexPolygonHover = (hexPolygon) => {
@@ -132,6 +143,7 @@ export const GlobeComponent = () => {
     const requestBody = {
       action: selectedAction,
       countryName: gameState.playerCountry.name,
+      selectedCountryName: selectedCountry?.properties.ADMIN,
       gameStateId: gameState.id,
     };
 
@@ -155,17 +167,19 @@ export const GlobeComponent = () => {
         <>
           <div className="overlay" style={{ pointerEvents: 'none' }}>
             <div className="header">
-              <h1>World Domination</h1>
-              <p>Turn {gameState.turn}</p>
+              <h1>Dictator Simulator</h1>
+              <h1>Turn {gameState.turn}</h1>
             </div>
             <div className="stats" onClick={showCountry}>
               <h2>{gameState.playerCountry.name}</h2>
               <ul>
                 <li>Resources: {gameState.playerCountry.resources}</li>
+                <li>Troops: {gameState.playerCountry.troops}</li>
+                <li>Population: x</li>
                 {/* <li>Army: {playerCountry.armySize}</li> */}
               </ul>
             </div>
-            <div className="actions">
+            <div className="actions home-actions">
               <h2>Actions</h2>
               <ul>
                 <li>
@@ -182,20 +196,6 @@ export const GlobeComponent = () => {
                     Build Army
                   </button>
                 </li>
-                <li>
-                  <button
-                    className={selectedAction === 'attack' ? 'selected' : 'not-selected'}
-                    onClick={() => handleSelectAction('attack')}>
-                    Attack
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className={selectedAction === 'diplomacy' ? 'selected' : 'not-selected'}
-                    onClick={() => handleSelectAction('diplomacy')}>
-                    Diplomacy
-                  </button>
-                </li>
               </ul>
             </div>
           </div>
@@ -203,7 +203,7 @@ export const GlobeComponent = () => {
             <>
               <Globe
                 ref={globeRef}
-                globeImageUrl="//unpkg.com/three-globe/example/img/earth-dark.jpg"
+                globeImageUrl="https://unpkg.com/three-globe@2.25.7/example/img/earth-dark.jpg"
                 hexPolygonsData={countries.features.filter((d) => d.properties.ISO_A2 !== 'AQ')}
                 lineHoverPrecision={0}
                 hexPolygonResolution={4}
@@ -221,13 +221,33 @@ export const GlobeComponent = () => {
                 pointsData={pointsData}
                 pointColor={() => 'green'}
                 pointAltitude={1}
-                onGlobeClick={() => setSelectedCountry(null)}
+                onGlobeClick={() => {
+                  if (selectedAction === 'attack' || selectedAction === 'diplomacy') {
+                    setSelectedAction(null);
+                  }
+                  setSelectedCountry(null);
+                }}
               />
               {selectedCountry && (
-                <div className="popup" style={popupStyles}>
+                <div className="actions target-actions popup">
                   <h2>{selectedCountry.properties.ADMIN}</h2>
-                  <p>Population: {selectedCountry.properties.POP_EST}</p>
-                  <button>Attack</button>
+                  <h2>Interact</h2>
+                  <ul>
+                    <li>
+                      <button
+                        className={selectedAction === 'attack' ? 'selected' : 'not-selected'}
+                        onClick={() => handleSelectAction('attack')}>
+                        Attack
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        className={selectedAction === 'diplomacy' ? 'selected' : 'not-selected'}
+                        onClick={() => handleSelectAction('diplomacy')}>
+                        Diplomacy
+                      </button>
+                    </li>
+                  </ul>
                 </div>
               )}
             </>
