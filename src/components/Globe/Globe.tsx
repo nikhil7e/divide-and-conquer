@@ -268,7 +268,7 @@ export const GlobeComponent = () => {
             <div className="overlay" style={{ pointerEvents: 'none' }}>
               <div className="header">
                 <h1>Turn {gameState.turn}</h1>
-                <h1>Dictator Simulator</h1>
+                <h1>Divide and Conquer</h1>
                 <h1>{player.username}</h1>
                 <button className={'logout'} onClick={handleLogout} style={{ pointerEvents: 'all' }}>
                   Log out
