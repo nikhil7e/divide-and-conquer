@@ -1,7 +1,9 @@
 import * as d3 from 'd3';
+import jwt_decode from 'jwt-decode';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOMServer from 'react-dom/server';
 import Globe, { GlobeMethods } from 'react-globe.gl';
+import { useNavigate } from 'react-router';
 import './Globe.css';
 
 export const GlobeComponent = () => {
@@ -10,15 +12,31 @@ export const GlobeComponent = () => {
   const [hoverD, setHoverD] = useState(null);
   const [selectedAction, setSelectedAction] = useState(null);
   const [playerCountry, setPlayerCountry] = useState(null);
+  const [player, setPlayer] = useState(null);
   const [selectedCountry, setSelectedCountry] = useState(null);
+  const [reload, setReload] = useState(false);
+  const [globeIsLoaded, setGlobeIsLoaded] = useState(false);
 
+  const navigate = useNavigate();
   const globeRef = useRef<GlobeMethods>(null);
 
   useEffect(() => {
+    async function getUser() {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const decodedToken = jwt_decode(token);
+        setPlayer(decodedToken);
+
+        console.log(decodedToken);
+      }
+    }
+    getUser();
+
     // load data
     async function getData() {
       const res = await fetch('/ne_10m_admin_0_countries.json');
       const x = await res.json();
+      console.log(x);
       setCountries(x);
     }
 
@@ -26,13 +44,19 @@ export const GlobeComponent = () => {
 
     // fetch initial game state
     async function getGameState() {
-      const res = await fetch('http://localhost:4000/gamestate');
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/gamestate`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await res.json();
+      console.log(data);
       setGameState(data);
     }
 
     getGameState();
-  }, []);
+  }, [reload]);
 
   useEffect(() => {
     if (gameState) {
@@ -41,7 +65,11 @@ export const GlobeComponent = () => {
   }, [gameState]);
 
   const showCountry = () => {
-    if (!playerCountry || !countries) {
+    if (
+      !playerCountry ||
+      !countries ||
+      !countries.features.find((feature) => feature.properties.ADMIN === playerCountry.name)?.geometry
+    ) {
       return [];
     }
 
@@ -86,8 +114,29 @@ export const GlobeComponent = () => {
       },
     ];
 
+    for (let id of playerCountry.conqueredCountryIds) {
+      const getFromGameState = gameState.countries.find((country) => country.id === id);
+      const selectedFeature = countries.features.find((feature) => feature.properties.ADMIN === getFromGameState.name);
+
+      if (!selectedFeature) {
+        return [];
+      }
+
+      const coords = selectedFeature.geometry.coordinates;
+
+      const first = Math.floor(coords.length / 2);
+      const second = Math.floor(coords[first].length / 2);
+      const third = Math.floor(coords[first][second].length / 2);
+
+      points.push({
+        lat: coords[first][second][third][1],
+        lng: coords[first][second][third][0],
+        name: 'Conquered',
+      });
+    }
+
     return points;
-  }, [playerCountry, countries]);
+  }, [playerCountry, countries.features, gameState]);
 
   const colorScale = d3.scaleSequentialSqrt(d3.interpolateYlOrRd);
 
@@ -147,10 +196,13 @@ export const GlobeComponent = () => {
       gameStateId: gameState.id,
     };
 
-    const res = await fetch('http://localhost:4000/turn', {
+    const token = localStorage.getItem('token');
+
+    const res = await fetch(`${process.env.REACT_APP_API_URL}/turn`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(requestBody),
     });
@@ -160,46 +212,106 @@ export const GlobeComponent = () => {
     setGameState(data);
   };
 
+  const handleReset = async () => {
+    //setGlobeIsLoaded(false);
+    console.log('handleReset started');
+    const token = localStorage.getItem('token');
+
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/reset`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log('fetch completed successfully');
+
+      //setReload(!reload);
+      window.location.reload();
+
+      console.log('handleReset finished');
+    } catch (error) {
+      console.error('fetch error:', error);
+    }
+
+    // navigate('/game');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/');
+  };
+
   return (
     <>
-      {(!countries || !gameState) && <h1>Loading...</h1>}
-      {countries && gameState && playerCountry && (
+      {!globeIsLoaded && (
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            zIndex: 3,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100vh',
+            width: '100vw',
+            backgroundColor: 'rgb(0, 0, 0)',
+          }}>
+          <div className="spinner"></div>
+        </div>
+      )}
+      {countries && gameState && playerCountry && player && (
         <>
-          <div className="overlay" style={{ pointerEvents: 'none' }}>
-            <div className="header">
-              <h1>Dictator Simulator</h1>
-              <h1>Turn {gameState.turn}</h1>
+          {globeIsLoaded && (
+            <div className="overlay" style={{ pointerEvents: 'none' }}>
+              <div className="header">
+                <h1>Turn {gameState.turn}</h1>
+                <h1>Dictator Simulator</h1>
+                <h1>{player.username}</h1>
+                <button className={'logout'} onClick={handleLogout} style={{ pointerEvents: 'all' }}>
+                  Log out
+                </button>
+              </div>
+              <div className="stats" onClick={showCountry}>
+                <h2>{gameState.playerCountry.name}</h2>
+                <ul>
+                  <li>Resources: {gameState.playerCountry.resources}</li>
+                  <li>Troops: {gameState.playerCountry.troops}</li>
+                  {/* <li>Army: {playerCountry.armySize}</li> */}
+                </ul>
+              </div>
+              <div className="actions home-actions">
+                <h2>Actions</h2>
+                <ul>
+                  <li>
+                    <button
+                      className={selectedAction === null ? 'not-selected end-turn' : 'selected end-turn'}
+                      onClick={handleEndTurn}>
+                      End Turn
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      className={selectedAction === 'buildArmy' ? 'selected' : 'not-selected'}
+                      onClick={() => handleSelectAction('buildArmy')}>
+                      Build Army
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={handleReset}>Reset Game</button>
+                  </li>
+                </ul>
+              </div>
             </div>
-            <div className="stats" onClick={showCountry}>
-              <h2>{gameState.playerCountry.name}</h2>
-              <ul>
-                <li>Resources: {gameState.playerCountry.resources}</li>
-                <li>Troops: {gameState.playerCountry.troops}</li>
-                <li>Population: x</li>
-                {/* <li>Army: {playerCountry.armySize}</li> */}
-              </ul>
+          )}
+          {!gameState.active && (
+            <div>
+              <h1>Your country {playerCountry.name} has been conquered!</h1>
             </div>
-            <div className="actions home-actions">
-              <h2>Actions</h2>
-              <ul>
-                <li>
-                  <button
-                    className={selectedAction === null ? 'not-selected end-turn' : 'selected end-turn'}
-                    onClick={handleEndTurn}>
-                    End Turn
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className={selectedAction === 'buildArmy' ? 'selected' : 'not-selected'}
-                    onClick={() => handleSelectAction('buildArmy')}>
-                    Build Army
-                  </button>
-                </li>
-              </ul>
-            </div>
-          </div>
-          {playerCountry && (
+          )}
+          {gameState.active && playerCountry && (
             <>
               <Globe
                 ref={globeRef}
@@ -217,7 +329,10 @@ export const GlobeComponent = () => {
                 hexPolygonsTransitionDuration={300}
                 hexPolygonCurvatureResolution={0}
                 onHexPolygonClick={handleCountryClick}
-                onGlobeReady={showCountry}
+                onGlobeReady={() => {
+                  setGlobeIsLoaded(true);
+                  showCountry();
+                }}
                 pointsData={pointsData}
                 pointColor={() => 'green'}
                 pointAltitude={1}
@@ -228,7 +343,7 @@ export const GlobeComponent = () => {
                   setSelectedCountry(null);
                 }}
               />
-              {selectedCountry && (
+              {globeIsLoaded && selectedCountry && (
                 <div className="actions target-actions popup">
                   <h2>{selectedCountry.properties.ADMIN}</h2>
                   <h2>Interact</h2>

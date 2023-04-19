@@ -19,21 +19,41 @@
   width: 100%;
   padding: 1rem;
   box-sizing: border-box;
-  /* background-color: rgba(0, 0, 0, 0.7); */
+  background-color: rgba(0, 0, 0, 0.321);
 }
 
-.overlay .header h1 {
+.overlay .header h1:first-of-type {
+  margin: 0;
+  margin-right: auto;
+  font-size: 2rem;
+  font-weight: bold;
+  color: white;
+}
+
+.overlay .header h1:nth-of-type(2) {
   margin: 0;
   font-size: 2rem;
   font-weight: bold;
   color: white;
 }
 
-.overlay .header p {
+.overlay .header h1:nth-of-type(3) {
   margin: 0;
-  font-size: 1.2rem;
+  margin-left: auto;
+  margin-right: 0.5rem;
+  font-size: 2rem;
   font-weight: bold;
   color: white;
+}
+
+.overlay .header .logout {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: white;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  width: auto;
 }
 
 .overlay .stats {
@@ -157,4 +177,22 @@ button.selected {
   padding: 1rem;
   border-radius: 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.spinner {
+  border: 16px solid #f3f3f3; /* Light grey */
+  border-top: 16px solid #3498db; /* Blue */
+  border-radius: 50%;
+  width: 120px;
+  height: 120px;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
