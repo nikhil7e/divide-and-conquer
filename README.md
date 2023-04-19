@@ -1,46 +1,24 @@
-# Getting Started with Create React App
+# Hvað er Divide and Conquer?
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Divide and Conquer er einfaldur turn-based strategy vafraleikur. Hægt er að nálgast leikinn á https://divide-and-conquer.onrender.com. Eftir að hafa stofnað aðgang fær leikmaður úthlutaða slembið land með slembnum gildum. Nýta þarf gildin, *resources* og *troops*, til þess að byggja upp her og hertaka lönd.
 
-## Available Scripts
+![](https://i2.paste.pics/9acec4367fcc3697fb98883bfb6f64df.png?trs=0c3aeea4edce2a83aeb82f5fffa20f1c44589247036e0c15a04fc0f308923c45)
 
-In the project directory, you can run:
+### Markmið
+Öðlast dýpri þekkingu á React og Express með því að útfæra sterkan grunn að nokkuð umfangsmiklum leik. Ekki er lögð áhersla á villumeðhöndlun og skilvirkni, heldur frekar að bera fram nokkurs konar proof of concept.
 
-### `npm start`
+# Útfærsla
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+Divide and conquer samanstendur af React framenda og Express RESTful [vefþjónustu](https://github.com/nikhil7e/divide-and-conquer-service). Framendinn nýtur [react-globe.gl](https://github.com/vasturiano/react-globe.gl) forritasafnið, sem er öflug leið til þess að lýsa gögnum á 3D hnött í vafranum. Forritasafnið notar [ThreeJS](https://github.com/mrdoob/three.js/)/WebGL til þess að útfæra framsetninguna. Því er mælt með að leikurinn sé keyrður á öflugri tölvu, helst með skjákorti svo hægt sé að draga úr loading tíma og töfum. Innifalið í framendanum er .geojson kortaskrá frá [Natural Earth](https://github.com/martynafford/natural-earth-geojson), sem er 1:10m mælikvarða gagnasafn af löndum jarðarins. Þessi gögn voru kortlögð á hnöttinn til þess að líkja eftir jörðinni og gefa leiknum áhugaverðan leikvöll. Innifalið í skránni eru ýmsar upplýsingar um löndin og eru sum þeirra notuð í leiknum, til dæmis mannfjöldi.
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+Bakendinn heldur utan um leikjastöðuna og lógíkina, sem er nokkuð einföld eins og er. Hægt er að velja á milli nokkurra aðgerða í hverri umferð. Hægt er að sleppa umferð, byggja upp her, eða gera tilraun til hertaka land. Gildi sem notuð eru í aðgerðum eru í flestum tilfellum slembin. Gagnagrunnsaðgerðir eru framkvæmdar með Prisma og PostgreSQL gagnagrunnur var settur upp. Notendaumsjón hefur einnig verið útfærð með jsonwebtokens og hægt er að endurstilla leikjastöðu. Vefþjónustan, gagnagrunnurinn og framendinn eru hýstar  á Render. 
 
-### `npm test`
+# Næstu skref
+Æskilegt væri að fínpússa útfærsluna og bæta við ýmsa virkni til þess að gera leikinn skemmtilegri og notendavænni:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+ - Bæta við villumeðhöndlun
+ - Bæta við fleirum aðgerðum og gildum svo hægt sé að
+ - Láta óleikmanna stýrð lönd velja frá fleiri aðgerðum, þ.e. ekki einungis draga frá slembið gildi
+ - Þjappa og minnka gögnum sem geymd eru í framenda og bakenda og minnka gögn sem send eru á milli
+ - Bæta við leiðbeiningar og tooltips
+ - Bæta jafnvel við multiplayer
